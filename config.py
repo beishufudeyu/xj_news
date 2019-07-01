@@ -6,7 +6,7 @@ class Config(object):
     """工程基础配置信息"""
 
     # 数据库配置
-    SQLALCHEMY_DATABASE_URI = "mysql://root:mysql@192.168.132.11:3306/news_finance"
+    SQLALCHEMY_DATABASE_URI = "mysql+pymysql://root:120609@192.168.132.11:3306/news_finance"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SECRET_KEY = "j8sqO4p5k41mpKAAOPx0xdS2ig1kmtwSJzoCZPVOG3FKc4Kyqz1JEeG3I5BzKq94"
