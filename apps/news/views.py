@@ -1,5 +1,5 @@
-from apps import redis_store
+from flask import render_template
 
 
 def index():
-    return 'index'
+    return render_template("news/index.html")

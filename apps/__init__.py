@@ -55,6 +55,6 @@ def create_app(config_name):
     app.register_blueprint(account_app, url_prefix="/user")
 
     from .news import news_app
-    app.register_blueprint(account_app)
+    app.register_blueprint(news_app)
 
     return app
