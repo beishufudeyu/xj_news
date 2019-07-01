@@ -1,13 +1,15 @@
-from apps import redis_store
+from apps import redis_store, db
 from flask import request, abort
 from apps.utils.captcha.captcha import captcha
 from apps import constants
-from flask import current_app, make_response, jsonify
+from flask import current_app, make_response, jsonify, session
 from flask.views import MethodView
 from apps.utils.response_code import RET
 import re
 import random
-from apps.libs.yuntongxun.sms import CCP
+from datetime import datetime
+from apps.libs.yuntongxun.sms import ccp
+from .models import User
 
 
 class GetImageCode(MethodView):
@@ -80,9 +82,19 @@ class SendSMSCode(MethodView):
         if not re.match(r"^1[35678]\d{9}$", phone):
             return jsonify(errno=RET.PARAMERR, errmsg="手机号格式不正确")
 
+        try:
+            frequently_sms = redis_store.get("Frequently_SMS_" + phone)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
+
+        if frequently_sms:
+            return jsonify(errno=RET.REQERR, errmsg="请求频繁")
+
         # 3. 从redis去去取图片验证码的text对比用户传来的是否一致
         try:
             real_image_code = redis_store.get("imageCodeId:" + image_uuid)
+            redis_store.delete("ImageCode_" + image_uuid)
         except Exception as e:
             current_app.logger.error("redis获取图片验证码错误:" + str(e))
             return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
@@ -92,13 +104,28 @@ class SendSMSCode(MethodView):
 
         # 4. 与用户传来的数据进行对比
         if image_code.lower() != real_image_code.lower():
-            return jsonify(errno=RET.NODATA, errmsg="图片验证码已过期")
+            return jsonify(errno=RET.DATAERR, errmsg="图片验证码输入错误")
+
+        try:
+            user = User.query.filter_by(mobile=phone).first()
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="数据库查询错误")
+        if user:
+            # 该手机已被注册
+            return jsonify(errno=RET.DATAEXIST, errmsg="该手机已被注册")
 
         # 5. 生成验证码的内容(随机数据)
         sms_code = "%06d" % random.randint(0, 999999)
 
         # 6. 发送手机验证码
-        result = CCP.send_template_sms(phone, [sms_code, constants.SMS_CODE_REDIS_EXPIRES / 60], 1)
+        result = ccp.send_template_sms(phone, [sms_code, constants.SMS_CODE_REDIS_EXPIRES / 60], 1)
+
+        try:
+            redis_store.setex("Frequently_SMS_:" + phone, 60, 1)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="数据库查询错误")
 
         # 4. 保存手机验证码文字到redis
         try:
@@ -111,3 +138,81 @@ class SendSMSCode(MethodView):
             current_app.logger.error("第三方发送手机验证码错误")
             return jsonify(errno=RET.SERVERERR, errmsg="发送手机验证码失败")
         return jsonify(errno=RET.OK, errmsg="发送手机验证码成功")
+
+
+class Register(MethodView):
+
+    def post(self):
+        """
+        注册用户
+        1. 取得参数
+        2. 判断参数是否有值
+        3. 取到数据库保存的真实手机验证码验证是否一致
+        4. 一致,初始化User模型,创建用户
+        5. 不一致,返回手机验证码错误
+        6. 返回响应
+        :return: 返回响应
+        """
+
+        params_dict = request.json
+
+        #  1. 取得参数:
+        #  手机号 图片验证码 图片验证码uuid
+        phone = params_dict.get("mobile", None)
+        sms_code = params_dict.get("sms_code", None)
+        password = params_dict.get("password", None)
+
+        # 2. 判断参数是否有值,是否符合规则
+        if not all([phone, sms_code, password]):
+            return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+        if not re.match(r"^1[35678]\d{9}$", phone):
+            return jsonify(errno=RET.PARAMERR, errmsg="手机号格式不正确")
+
+        # 3. 取到数据库保存的真实手机验证码验证是否一致
+        try:
+            real_sms_code = redis_store.get("SMS_" + phone)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
+
+        # 数据为空,即是验证码已过期
+        if not real_sms_code:
+            return jsonify(errno=RET.NODATA, errmsg="手机验证码过期")
+
+        # 判断手机验证码是否一致
+        if real_sms_code != sms_code:
+            return jsonify(errno=RET.DATAERR, errmsg="手机验证码输入错误")
+
+        # 删除短信验证码
+        try:
+            redis_store.delete("SMS_" + phone)
+        except Exception as e:
+            current_app.logger.error(e)
+
+        # 4. 一致,初始化User模型,创建用户
+        user = User()
+        user.mobile = phone
+        # 没有nickname,默认保存手机号
+        user.nick_name = phone
+        # 保存用户最后一次登录时间
+        user.last_login = datetime.now()
+        # TODO 密码的处理,已经在模型中处理密码加密
+        user.password = password
+
+        # 添加到数据库
+        try:
+            db.session.add(user)
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error("创建用户到数据库失败:" + str(e))
+            db.session.rollback()
+            return jsonify(errno=RET.DBERR, errmsg="数据库错误")
+
+        # 登录,添加用户信息到session中
+        session["user_id"] = user.id
+        session["mobile"] = user.mobile
+        session["nick_name"] = user.nick_name
+
+        # 5. 返回响应
+        return jsonify(errno=RET.OK, errmsg="注册成功")

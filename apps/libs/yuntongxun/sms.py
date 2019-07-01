@@ -71,10 +71,10 @@ class CCP(object):
             return -1
 
 
+ccp = CCP()
+
 if __name__ == '__main__':
     # 创建对象
-    ccp = CCP()
-
     # 调用send_template_sms
     # 参数1: 需要发送到的手机号
     # 参数2: 列表, 验证码 + 有效期
