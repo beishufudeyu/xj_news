@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-account_app = Blueprint("account", __name__)
+news_app = Blueprint("news", __name__)
 
 from . import urls
 from . import models

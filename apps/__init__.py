@@ -52,6 +52,9 @@ def create_app(config_name):
     Session(app)
 
     from .account import account_app
+    app.register_blueprint(account_app, url_prefix="/user")
+
+    from .news import news_app
     app.register_blueprint(account_app)
 
     return app
