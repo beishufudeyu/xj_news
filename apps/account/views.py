@@ -268,10 +268,7 @@ class Login(MethodView):
         user.last_login = datetime.now()
 
         # 保存已在SQLALCHEMY_COMMIT_ON_TEARDOWN配置自动提交
-        # try:
-        #     db.session.commit()
-        # except Exception as e:
-        #     current_app.logger.error(e)
+
         # 5. 登录成功
         return jsonify(errno=RET.OK, errmsg="OK")
 
