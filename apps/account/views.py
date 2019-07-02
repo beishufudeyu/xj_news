@@ -35,6 +35,9 @@ class GetImageCode(MethodView):
         # 3. 生成图片验证码
         name, text, image = captcha.generate_captcha()
 
+        # TODO 方便测试,记得删除
+        current_app.logger.error("当前图片验证码为: {}".format(text))
+
         # 4. 保存图片验证码文字到redis
         try:
             redis_store.setex("imageCodeId:" + image_uuid, constants.IMAGE_CODE_REDIS_EXPIRES, text)
@@ -94,7 +97,7 @@ class SendSMSCode(MethodView):
         # 3. 从redis去去取图片验证码的text对比用户传来的是否一致
         try:
             real_image_code = redis_store.get("imageCodeId:" + image_uuid)
-            redis_store.delete("ImageCode_" + image_uuid)
+            redis_store.delete("imageCodeId:" + image_uuid)
         except Exception as e:
             current_app.logger.error("redis获取图片验证码错误:" + str(e))
             return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
@@ -117,6 +120,9 @@ class SendSMSCode(MethodView):
 
         # 5. 生成验证码的内容(随机数据)
         sms_code = "%06d" % random.randint(0, 999999)
+
+        # TODO 方便测试,记得删除
+        current_app.logger.error("当前{}手机的验证码为: {}".format(phone, sms_code))
 
         # 6. 发送手机验证码
         result = ccp.send_template_sms(phone, [sms_code, constants.SMS_CODE_REDIS_EXPIRES / 60], 1)
@@ -171,7 +177,7 @@ class Register(MethodView):
 
         # 3. 取到数据库保存的真实手机验证码验证是否一致
         try:
-            real_sms_code = redis_store.get("SMS_" + phone)
+            real_sms_code = redis_store.get("SMS_:" + phone)
         except Exception as e:
             current_app.logger.error(e)
             return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
@@ -186,7 +192,7 @@ class Register(MethodView):
 
         # 删除短信验证码
         try:
-            redis_store.delete("SMS_" + phone)
+            redis_store.delete("SMS_:" + phone)
         except Exception as e:
             current_app.logger.error(e)
 
@@ -197,7 +203,7 @@ class Register(MethodView):
         user.nick_name = phone
         # 保存用户最后一次登录时间
         user.last_login = datetime.now()
-        # TODO 密码的处理,已经在模型中处理密码加密
+        # 密码的处理,已经在模型中处理密码加密
         user.password = password
 
         # 添加到数据库
@@ -216,3 +222,68 @@ class Register(MethodView):
 
         # 5. 返回响应
         return jsonify(errno=RET.OK, errmsg="注册成功")
+
+
+class Login(MethodView):
+    def post(self):
+        """
+        1. 获取参数和判断是否有值
+        2. 从数据库查询出指定的用户
+        3. 校验密码
+        4. 保存用户登录状态
+        5. 返回结果
+        :return:
+        """
+
+        # 1. 获取参数和判断是否有值
+        json_data = request.json
+
+        mobile = json_data.get("mobile", None)
+        password = json_data.get("password", None)
+
+        if not all([mobile, password]):
+            # 参数不全
+            return jsonify(errno=RET.PARAMERR, errmsg="参数不全")
+
+        # 2. 从数据库查询出指定的用户
+        try:
+            user = User.query.filter_by(mobile=mobile).first()
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="查询数据错误")
+
+        if not user:
+            return jsonify(errno=RET.USERERR, errmsg="用户不存在")
+
+        # 3. 校验密码
+        if not user.check_password(password):
+            return jsonify(errno=RET.PWDERR, errmsg="用户名或密码错误")
+
+        # 4. 保存用户登录状态
+        session["user_id"] = user.id
+        session["nick_name"] = user.nick_name
+        session["mobile"] = user.mobile
+
+        # 记录用户最后一次登录时间
+        user.last_login = datetime.now()
+
+        # 保存已在SQLALCHEMY_COMMIT_ON_TEARDOWN配置自动提交
+        # try:
+        #     db.session.commit()
+        # except Exception as e:
+        #     current_app.logger.error(e)
+        # 5. 登录成功
+        return jsonify(errno=RET.OK, errmsg="OK")
+
+
+def logout():
+    """
+    清除session中的对应登录之后保存的信息
+    :return:
+    """
+    session.pop('user_id', None)
+    session.pop('nick_name', None)
+    session.pop('mobile', None)
+
+    # 返回结果
+    return jsonify(errno=RET.OK, errmsg="OK")

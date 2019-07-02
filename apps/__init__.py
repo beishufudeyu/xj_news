@@ -6,6 +6,8 @@ from flask_session import Session
 from config import config
 import logging
 from logging.handlers import RotatingFileHandler
+# 导入生成 csrf_token 值的函数
+from flask_wtf.csrf import generate_csrf
 
 # 初始化db对象,flask扩展中基本上都有init_app()函数去初始化app
 db = SQLAlchemy()
@@ -46,9 +48,25 @@ def create_app(config_name):
     # 配置redis
     global redis_store
     redis_store = StrictRedis(host=config[config_name].REDIS_HOST, port=config[config_name].REDIS_PORT,
-                              decode_responses=False)
+                              decode_responses=True)
     # 开启csrf保护
+
+    """
+    CSRFProtect 这个类专门只对指定 app 进行 csrf_token 校验操作，所以开发者需要做以下几件事情：
+        生成 csrf_token 的值
+        将 csrf_token 的值传给前端浏览器
+        在前端请求时带上 csrf_token 值
+    """
     CSRFProtect(app)
+
+    @app.after_request
+    def after_request(response):
+        # 调用函数生成 csrf_token
+        csrf_token = generate_csrf()
+        # 通过 cookie 将值传给前端
+        response.set_cookie("csrf_token", csrf_token)
+        return response
+
     # 设置session保存位置
     Session(app)
 

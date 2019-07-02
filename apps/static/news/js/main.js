@@ -120,7 +120,30 @@ $(function () {
         }
 
         // 发起登录请求
-    })
+        var params = {
+            "mobile": mobile,
+            "password": password,
+        };
+
+        $.ajax({
+            url: "/user/login",
+            method: "post",
+            data: JSON.stringify(params),
+            contentType: "application/json",
+            headers: {
+                "X-CSRFToken": getCookie("csrf_token")
+            },
+            success: function (resp) {
+                if (resp.errno == "0") {
+                    // 刷新当前界面
+                    location.reload();
+                } else {
+                    $("#login-password-err").html(resp.errmsg);
+                    $("#login-password-err").show()
+                }
+            }
+        })
+    });
 
 
     // TODO 注册按钮点击
@@ -167,6 +190,9 @@ $(function () {
             data: JSON.stringify(params),
             contentType: "application/json",
             dataType: "json",
+            headers: {
+                "X-CSRFToken": getCookie("csrf_token")
+            },
             success: function (response) {
                 if (response.errno == "0") {
                     // 刷新当前界面
@@ -230,6 +256,9 @@ function sendSMSCode() {
         data: JSON.stringify(params),
         contentType: "application/json",
         dataType: "json",
+        headers: {
+            "X-CSRFToken": getCookie("csrf_token")
+        },
         success: function (response) {
             if (response.errno == "0") {
                 var num = 60;
@@ -258,6 +287,12 @@ function sendSMSCode() {
 
     })
 
+}
+
+function logout() {
+    $.get("/user/logout", function (response) {
+        location.reload()
+    })
 }
 
 // 调用该函数模拟点击左侧按钮
