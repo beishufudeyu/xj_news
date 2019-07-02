@@ -8,7 +8,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 # 导入生成 csrf_token 值的函数
 from flask_wtf.csrf import generate_csrf
-from apps.utils.common import to_index_class
 
 # 初始化db对象,flask扩展中基本上都有init_app()函数去初始化app
 db = SQLAlchemy()
@@ -71,6 +70,7 @@ def create_app(config_name):
     # 设置session保存位置
     Session(app)
 
+    from apps.utils.common import to_index_class
     app.add_template_filter(to_index_class, "index_class")
 
     from .account import account_app
