@@ -5,6 +5,7 @@ from .models import News, Category, Comment, CommentLike
 from apps import constants, db
 from apps.utils.common import user_login_data
 from flask.views import MethodView
+from apps.account.models import User
 
 
 def get_favicon():
@@ -68,7 +69,7 @@ def get_news_list():
         return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
 
     # 3. 查询数据并分页
-    filters = []
+    filters = [News.status == 0]
 
     # 如果分类id不为1，那么添加分类id的过滤
     # 查询的不是最新的数据
@@ -143,12 +144,15 @@ def news_detail(new_id):
             comment_dict["is_like"] = True
         comment_list.append(comment_dict)
 
-    # 判断是否收藏该新闻，默认值为 false
-    is_collected = False
+    # 当前登录用户是否关注当前新闻作者
+    is_followed = False
     # 判断用户是否收藏过该新闻
+    is_collected = False
     if g.user:
         if news in g.user.collection_news:
             is_collected = True
+        if news.user.followers.filter(User.id == g.user.id).count() > 0:
+            is_followed = True
 
     hot_news = []
     try:
@@ -166,7 +170,8 @@ def news_detail(new_id):
         "hot_news_dict_li": hot_news_dict_li,
         "news": news.to_dict(),
         "is_collected": is_collected,
-        "comments": comment_list
+        "comments": comment_list,
+        "is_followed": is_followed
     }
     return render_template("news/detail.html", data=data)
 
@@ -311,4 +316,50 @@ class SetCommentLike(MethodView):
             current_app.logger.error(e)
             db.session.rollback()
             return jsonify(errno=RET.DBERR, errmsg="操作失败")
+        return jsonify(errno=RET.OK, errmsg="操作成功")
+
+
+class FollowedUser(MethodView):
+    decorators = [user_login_data]
+
+    def post(self):
+        """关注/取消关注用户"""
+        if not g.user:
+            return jsonify(errno=RET.SESSIONERR, errmsg="用户未登录")
+
+        user_id = request.json.get("user_id")
+        action = request.json.get("action")
+
+        if not all([user_id, action]):
+            return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+        if action not in ("follow", "unfollow"):
+            return jsonify(errno=RET.PARAMERR, errmsg="参数错误")
+
+        # 查询到关注的用户信息
+        try:
+            target_user = User.query.get(user_id)
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="查询数据库失败")
+
+        if not target_user:
+            return jsonify(errno=RET.NODATA, errmsg="未查询到用户数据")
+
+        # 根据不同操作做不同逻辑
+        if action == "follow":
+            if target_user.followers.filter(User.id == g.user.id).count() > 0:
+                return jsonify(errno=RET.DATAEXIST, errmsg="当前已关注")
+            target_user.followers.append(g.user)
+        else:
+            if target_user.followers.filter(User.id == g.user.id).count() > 0:
+                target_user.followers.remove(g.user)
+
+        # 保存到数据库
+        try:
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error(e)
+            return jsonify(errno=RET.DBERR, errmsg="数据保存错误")
+
         return jsonify(errno=RET.OK, errmsg="操作成功")

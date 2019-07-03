@@ -24,8 +24,8 @@
             <div class="user_login fr">
                 <img src="{% if data.user_info.avatar_url %} {{ data.user_info.avatar_url }} {% else %}../../static/news/images/person01.png{% endif %}"
                      class="lgin_pic">
-                <a href="#">{{ data.user_info.nick_name }}</a>
-                <a href="#">退出</a>
+                <a href="{{ url_for("account.user_info") }}">{{ data.user_info.nick_name }}</a>
+                <a href="{{ url_for("account.logout") }}">退出</a>
             </div>
         {% else %}
             {# 如果没有登录，则显示登录注册按钮 #}
@@ -46,34 +46,39 @@
 
         {% endblock %}
 
-        <div class="rank_title">
-            <h3>点击排行</h3>
-        </div>
-        <ul class="rank_list">
-            {% for news in data.hot_news_dict_li %}
-                <li><span class="{{ loop.index | index_class }}">{{ loop.index }}</span><a href="/news/{{ news.id }}"
-                                                                                           target="_blank">{{ news.title }}</a>
-                </li>
-            {% endfor %}
-        </ul>
+        {% block rankBlock %}
+            <div class="rank_title">
+                <h3>点击排行</h3>
+            </div>
+            <ul class="rank_list">
+                {% for news in data.hot_news_dict_li %}
+                    <li><span class="{{ loop.index | index_class }}">{{ loop.index }}</span><a
+                            href="/news/{{ news.id }}"
+                            target="_blank">{{ news.title }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endblock %}
     </div>
 </div>
 
-<div class="footer">
-    <div class="footer_links">
-        <a href="">关于我们</a>
-        <span>|</span>
-        <a href="">联系我们</a>
-        <span>|</span>
-        <a href="">招聘人才</a>
-        <span>|</span>
-        <a href="">友情链接</a>
+{% block bottomBlock %}
+    <div class="footer">
+        <div class="footer_links">
+            <a href="">关于我们</a>
+            <span>|</span>
+            <a href="">联系我们</a>
+            <span>|</span>
+            <a href="">招聘人才</a>
+            <span>|</span>
+            <a href="">友情链接</a>
+        </div>
+        <p class="copyright">
+            CopyRight © 2018 新经资讯信息技术有限公司 All Rights Reserved<br/>
+            电话：010-****888 京ICP备*******8号
+        </p>
     </div>
-    <p class="copyright">
-        CopyRight © 2018 新经资讯信息技术有限公司 All Rights Reserved<br/>
-        电话：010-****888 京ICP备*******8号
-    </p>
-</div>
+{% endblock %}
 
 
 <!-- 登录表单 -->

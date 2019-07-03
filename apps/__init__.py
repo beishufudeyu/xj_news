@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template, g
 from flask_sqlalchemy import SQLAlchemy
 from redis import StrictRedis
 from flask_wtf.csrf import CSRFProtect
@@ -66,6 +66,14 @@ def create_app(config_name):
         # 通过 cookie 将值传给前端
         response.set_cookie("csrf_token", csrf_token)
         return response
+
+    from apps.utils.common import user_login_data
+    @app.errorhandler(404)
+    @user_login_data
+    def page_not_found(_):
+        user = g.user
+        data = {"user_info": user.to_dict() if user else None}
+        return render_template('news/404.html', data=data)
 
     # 设置session保存位置
     Session(app)
