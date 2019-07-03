@@ -10,7 +10,7 @@
         <div class="user_center_pic">
             <img src="{% if data.user_info.avatar_url %} {{ data.user_info.avatar_url }} {% else %}../../static/news/images/person01.png{% endif %}" alt="用户图片">
         </div>
-        <div class="user_center_name">用户张山</div>
+        <div class="user_center_name">用户{{ data.user_info.nick_name }}</div>
 
         <ul class="option_list">
             <li class="active"><a href="{{ url_for("account.base_info") }}" target="main_frame">基本资料</a></li>

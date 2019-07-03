@@ -151,7 +151,7 @@ def news_detail(new_id):
     if g.user:
         if news in g.user.collection_news:
             is_collected = True
-        if news.user.followers.filter(User.id == g.user.id).count() > 0:
+        if news.user in g.user.followed:
             is_followed = True
 
     hot_news = []
@@ -320,7 +320,7 @@ class SetCommentLike(MethodView):
 
 
 class FollowedUser(MethodView):
-    decorators = [user_login_data]
+    decorators = [user_login_data, ]
 
     def post(self):
         """关注/取消关注用户"""

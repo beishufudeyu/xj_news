@@ -87,4 +87,7 @@ def create_app(config_name):
     from .news import news_app
     app.register_blueprint(news_app)
 
+    from .admin import admin_app
+    app.register_blueprint(admin_app, url_prefix="/admin")
+
     return app

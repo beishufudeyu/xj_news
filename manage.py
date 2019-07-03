@@ -19,8 +19,27 @@ manager.add_command('db', MigrateCommand)
 def generate_secret_key(length=48):
     key = os.urandom(length)
     secret_key = base64.b64encode(key)
-    print(secret_key)
     return secret_key
+
+
+@manager.option('-n', '-name', dest="username")
+@manager.option('-p', '-password', dest="password")
+def createsuperuser(username, password):
+    if not all([username, password]):
+        print("参数不足,请指定用户名和密码")
+    from apps.account.models import User
+    user = User()
+    user.nick_name = username
+    user.mobile = username
+    user.password = password
+    user.is_admin = True
+    try:
+        db.session.add(user)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(e)
+    return "添加成功"
 
 
 if __name__ == '__main__':

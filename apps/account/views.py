@@ -283,21 +283,9 @@ class Logout(MethodView):
         session.pop('user_id', None)
         session.pop('nick_name', None)
         session.pop('mobile', None)
+        session.pop('is_admin', None)
         # 返回结果
         return redirect("/")
-
-
-# def logout():
-#     """
-#     清除session中的对应登录之后保存的信息
-#     :return:
-#     """
-#     session.pop('user_id', None)
-#     session.pop('nick_name', None)
-#     session.pop('mobile', None)
-#
-#     # 返回结果
-#     return redirect("/")
 
 
 class UserInfo(MethodView):
@@ -576,8 +564,6 @@ class UserFollowInfo(MethodView):
         except Exception as e:
             current_app.logger.error(e)
             p = 1
-
-        user = g.user
 
         follows = []
         current_page = 1

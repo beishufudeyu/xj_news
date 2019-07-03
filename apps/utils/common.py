@@ -1,5 +1,5 @@
 import functools
-from flask import g, session, redirect, current_app, abort, jsonify
+from flask import g, session, redirect, current_app, abort, jsonify, url_for
 from .response_code import RET
 
 
@@ -43,6 +43,48 @@ def login_require(f):
     return wrapper
 
 
+def admin_user_login_data(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        # 获取到当前登录用户的id
+        user_id = session.get("user_id")
+        is_admin = session.get("is_admin")
+        # 通过id获取用户信息
+        user = None
+        if user_id and is_admin:
+            from apps.account.models import User
+            user = User.query.filter(User.id == user_id, User.is_admin == 1).first()
+
+        g.admin_user = user
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def admin_login_require(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        # 获取到当前登录用户
+        admin_user = g.admin_user
+        if not admin_user:
+            return redirect(url_for("admin.login"))
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+def is_login_to_admin(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        # 获取到当前登录用户
+        admin_user = g.admin_user
+        if admin_user:
+            return redirect(url_for("admin.admin"))
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
 def logging_error(text):
     current_app.logger.error(text)
 
@@ -74,4 +116,3 @@ def redis_del_ex(key):
     except Exception as e:
         current_app.logger.error("redis获取图片验证码错误:" + str(e))
     return jsonify(errno=RET.DBERR, errmsg="数据查询失败")
-

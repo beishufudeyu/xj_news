@@ -1,13 +1,14 @@
 import logging
 
 from qiniu import Auth, put_data
+import os
 
 # 需要填写你的 Access Key 和 Secret Key
-access_key = 'At4OWas3FCSudILUeFKhlZdkKk6S8XyrzQcSzAaJ'
-secret_key = 'H3QGAdW9tsJgX7EI5Y5Cedf9Oyn-HzfR67WRoHDw'
+access_key = os.getenv("qiniu_access_key")
+secret_key = os.getenv("qiniu_secret_key")
 
 # 要上传的空间
-bucket_name = 'ihome'
+bucket_name = 'cystorage'
 
 
 def storage(data):
